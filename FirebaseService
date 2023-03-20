@@ -1,0 +1,107 @@
+class FirebaseService extends GetxController {  
+  DocumentReference docRef = FirebaseFirestore.instance.collection('colname').doc('docname');
+  CollectionReference colRef = FirebaseFirestore.instance.collection('colname');
+
+  Future<void> getPreviousChats(int roomNum) async {
+    final res = await firebase
+        .collection('ChatRoom$roomNum')
+        .orderBy('uploadTime', descending: true)
+        .get();
+    final chats = res.docs.map((e) => ChatModel.fromJson(e.data())).toList();
+    chattingList.clear();
+    chattingList.addAll(chats.reversed);
+    update();
+  }
+
+  // 파이어베이스에 자료 저장
+  Future<void> FirebaseAdd(String text1, String text2) async {
+    if (usertext.isNotEmpty) {
+      var now = DateTime.now().millisecondsSinceEpoch;
+      ChatModel chat = ChatModel(id, name, usertext, aitext, now);
+      await firebase
+          .collection("ChatRoom$roomNum")
+          .add(
+          'text1' : text1,
+          'text2' : text2,
+          )
+          .then((value) => {
+                print("Text Added"),
+                chattingList.add(chat),
+              })
+          .catchError((error) => print("Failed to add text : $error"));
+    }
+    update();
+  }
+
+  // 파이어베이스 데이터 삭제
+  void DelChatRoom(int roomNum) async {
+    try {
+      QuerySnapshot snapshot = await colRef.get();
+      List<QueryDocumentSnapshot> docs = snapshot.docs;
+      for (QueryDocumentSnapshot doc in docs) {
+        await doc.reference
+            .collection("subcolname")
+            .get()
+            .then((subsnapshot) {
+          for (DocumentSnapshot subdoc in subsnapshot.docs) {
+            subdoc.reference.delete();
+          }
+        });
+        await doc.reference.delete();
+      }
+    } catch (e) {
+      print('Error deleting chat room: $e');
+    }
+  }
+
+  Stream<QuerySnapshot> getSnapshot() {
+    return FirebaseFirestore
+        .instance
+        .collection("colname")
+        .orderBy('uploadTime', descending: true)
+        .limit(1)
+        .snapshots();
+  }
+
+  void addOne(ChatModel model) {
+    chattingList.insert(0, model);
+    update();
+  }
+
+  Future load() async {
+    chattingList = <ChatModel>[].obs;
+    var result = await firebase
+        .collection("ChatRoom$roomNum")
+        .orderBy('uploadTime', descending: true)
+        .get();
+    var l = result.docs.map((e) => ChatModel.fromJson(e.data())).toList();
+    chattingList.addAll(l);
+    update();
+  }
+
+  Future<String> RoomTitle(int index) async {
+    QuerySnapshot r = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(id)
+        .collection('ChatRoom$index')
+        .orderBy('uploadTime', descending: true)
+        .limit(1)
+        .get();
+    return r.docs.isNotEmpty ? r.docs.first.get('usertext') : '대화가 없습니다.';
+  }
+
+  Future<void> loadRoomTitles() async {
+    for (int i = 0; i < roomTitles.length; i++) {
+      final title = await RoomTitle(i);
+      roomTitles[i] = title;
+    }
+  }
+
+  Stream<DocumentSnapshot<Object?>> listenToChatRooms() {
+    return FirebaseFirestore.instance.collection('users').doc(id).snapshots();
+  }
+
+  void ChatClear() {
+    chattingList.clear();
+  }
+}
