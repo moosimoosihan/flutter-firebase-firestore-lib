@@ -101,7 +101,4 @@ class FirebaseService extends GetxController {
     return FirebaseFirestore.instance.collection('users').doc(id).snapshots();
   }
 
-  void ChatClear() {
-    chattingList.clear();
-  }
 }
